@@ -1,5 +1,5 @@
 # ezship
-PrestaShop ezShip OK超商 / 萊爾富 / 全家取貨 適用版本 1.7.5+ 
+PrestaShop ezShip OK超商 / 萊爾富 / 全家取貨 模組適用版本 1.7.5+ 
 
 PrestaShop 是一套很棒的開源電子商務軟體 (Freemium Open Source E-Commerce Software)，雖然它在華人世界不普及，支援的模組也不像 WordPress 那麼繁多，但它的佈景模組設計很靈活，讓人越用越順手。
 
