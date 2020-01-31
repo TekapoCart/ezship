@@ -496,13 +496,6 @@ class EzShip extends CarrierModule
                 'name' => 'ezship_submit',
                 'title' => $this->l('Save'),
             ),
-            'buttons' => array(
-                array(
-                    'href' => $this->context->link->getAdminLink('AdminPayment', false).'&token='.Tools::getAdminTokenLite('AdminPayment'),
-                    'title' => '返回金物流模組',
-                    'icon' => 'process-icon-back'
-                )
-            )
         );
 
         $helper = new HelperForm();
