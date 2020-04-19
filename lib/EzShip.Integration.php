@@ -320,6 +320,12 @@ class EzShip_CheckOutFeedback extends EzShip_Aio
 
         // 重新整理回傳參數
         foreach ($arParameters as $keys => $value) {
+
+            if ($keys == 'sn_id' && strlen($value) > 11) {
+                array_push($arErrors, 'sn_id verify fail.');
+                continue;
+            }
+
             if ($keys != 'webPara') {
                 $arFeedback[$keys] = $value;
             }
@@ -473,9 +479,9 @@ class EzShip_Verification_CVS extends EzShip_Verification
     );
 
     // 過濾多餘參數
-    function filter_string($arExtend = array(), $InvoiceMark = '')
+    function filter_string($arExtend = array())
     {
-        $arExtend = parent::filter_string($arExtend, $InvoiceMark);
+        $arExtend = parent::filter_string($arExtend);
         return $arExtend;
     }
 }
@@ -488,9 +494,9 @@ class EzShip_Verification_Home extends EzShip_Verification
     );
 
     // 過濾多餘參數
-    function filter_string($arExtend = array(), $InvoiceMark = '')
+    function filter_string($arExtend = array())
     {
-        $arExtend = parent::filter_string($arExtend, $InvoiceMark);
+        $arExtend = parent::filter_string($arExtend);
         return $arExtend;
     }
 }

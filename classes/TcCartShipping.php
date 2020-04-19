@@ -122,10 +122,11 @@ if (!class_exists('TcCartShipping')) {
                 $tcCartShipping->id_cart = $cart_id;
                 $tcCartShipping->id_carrier = $carrier_id;
             }
-            if (empty($rowOrder)) {
-                $tcCartShipping->delivery_time = $scheduled_data['delivery_time'];
-                $tcCartShipping->save();
+            if (isset($scheduled_data['delivery_date'])) {
+                $tcCartShipping->delivery_date = $scheduled_data['delivery_date'];
             }
+            $tcCartShipping->delivery_time = $scheduled_data['delivery_time'];
+            $tcCartShipping->save();
         }
 
     }

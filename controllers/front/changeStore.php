@@ -1,8 +1,4 @@
 <?php
-// 不讓 Browser Keep Cache
-header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
-header("Cache-Control: post-check=0, pre-check=0", false);
-header("Pragma: no-cache");
 
 class EzShipChangeStoreModuleFrontController extends ModuleFrontController
 {
@@ -57,7 +53,7 @@ class EzShipChangeStoreModuleFrontController extends ModuleFrontController
 
         } catch (Exception $e) {
 
-            EzShip::logMessage(sprintf('EzShipChangeStore exception: %s', $e->getMessage()), true);
+            EzShip::warnMessage(sprintf('EzShipChangeStore exception: %s', $e->getMessage()), true);
         }
 
         exit;

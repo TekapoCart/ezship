@@ -16,7 +16,7 @@ class EzShip extends CarrierModule
     {
         $this->name = 'ezship';
         $this->tab = 'shipping_logistics';
-        $this->version = '1.0';
+        $this->version = '1.1';
         $this->author = 'TekapoCart';
         $this->bootstrap = true;
 
@@ -52,7 +52,7 @@ class EzShip extends CarrierModule
         return true;
     }
 
-    public function installDb()
+    private function installDb()
     {
         $sql = [];
 
@@ -60,7 +60,6 @@ class EzShip extends CarrierModule
                 `id_tc_cart_shipping` INT(10) UNSIGNED NOT NULL AUTO_INCREMENT,
                 `id_cart` INT(10) UNSIGNED NULL DEFAULT NULL,
                 `id_carrier` INT(10) UNSIGNED NULL DEFAULT NULL,
-                `module` VARCHAR(64) NULL DEFAULT NULL,
                 `store_type` VARCHAR(50) NULL DEFAULT NULL,                                 
                 `store_code` VARCHAR(10) NULL DEFAULT NULL,
                 `store_name` VARCHAR(255) NULL DEFAULT NULL,
@@ -91,6 +90,7 @@ class EzShip extends CarrierModule
                 `rv_address` VARCHAR(255) NULL DEFAULT NULL,
                 `distance` VARCHAR(2) NULL DEFAULT NULL COMMENT "ecpay: 宅配距離",
                 `specification` VARCHAR(4) NULL DEFAULT NULL COMMENT "ecpay: 包裹規格",
+                `delivery_date` VARCHAR(10) NULL DEFAULT NULL COMMENT "ecpay: 包裹預定送達日",
                 `delivery_time` VARCHAR(2) NULL DEFAULT NULL COMMENT "ecpay: 包裹預定送達時段",
                 `sn_id` VARCHAR(64) NULL DEFAULT NULL COMMENT "ezship: 店到店編號, ecpay: 物流交易編號",
                 `return_status` VARCHAR(50) NULL DEFAULT NULL,
@@ -118,7 +118,7 @@ class EzShip extends CarrierModule
 
     }
 
-    public function installCarrier()
+    private function installCarrier()
     {
         $carrier = new Carrier();
         $carrier->name = $this->l('OK Mart, HiLife, FamilyMart pickup in-store');
@@ -167,7 +167,7 @@ class EzShip extends CarrierModule
             'stCate' => $store_data ? $store_data['type'] : '',
             'stCode' => $store_data ? $store_data['code'] : '',
             'rtURL' => $this->context->link->getModuleLink('ezship', 'selectStore', []),
-            'webPara' => '',
+            'webPara' => $params['carrier']['id'],
         ];
         $map_url .= '?' . http_build_query($query);
 
@@ -205,8 +205,8 @@ class EzShip extends CarrierModule
         }
 
         $this->smarty->assign(array(
-            'receiver_name' => $address->lastname . $address->firstname,
-            'receiver_phone' => $phone,
+            'receiver_name' => $address->lastname . Tools::maskString($address->firstname, 'name'),
+            'receiver_phone' => Tools::maskString($phone, 'phone'),
             'store_data' => $store_data,
         ));
 
@@ -220,17 +220,28 @@ class EzShip extends CarrierModule
             return false;
         }
 
+        $address = new Address(intval($params['order']->id_address_delivery));
+        if (!is_null($address->phone_mobile) && !empty($address->phone_mobile)) {
+            $phone = $address->phone_mobile;
+        } else {
+            $phone = $address->phone;
+        }
+
         $tcOrderShipping = TcOrderShipping::getLogByOrderId($params['order']->id, 'array');
         if ($tcOrderShipping) {
             $store_data['type'] = $tcOrderShipping['store_type'];
             $store_data['code'] = $tcOrderShipping['store_code'];
             $store_data['name'] = $tcOrderShipping['store_name'];
             $store_data['addr'] = $tcOrderShipping['store_addr'];
-            $store_data['return_message'] = $tcOrderShipping['return_message'];
+
+            $order = new Order($params['order']->id);
 
             $this->smarty->assign(array(
+                'receiver_name' => $address->lastname . Tools::maskString($address->firstname, 'name'),
+                'receiver_phone' => Tools::maskString($phone, 'phone'),
                 'store_data' => $store_data,
                 'return_message' => $tcOrderShipping['return_message'],
+                'shipping_number' => $order->getWsShippingNumber(),
             ));
         }
 
@@ -456,6 +467,7 @@ class EzShip extends CarrierModule
                     'label' => $this->l('ezShip account (suID)'),
                     'name' => 'ezship_su_id',
                     'required' => true,
+                    'desc' => '註冊 E-Mail',
                 ),
                 array(
                     'type' => 'select',
@@ -463,12 +475,13 @@ class EzShip extends CarrierModule
                     'name' => 'ezship_confirm_order',
                     'options' => array(
                         'query' => array(
-                            array('id' => '1', 'name' => '需在 ezShip 上確認訂單'),
                             array('id' => '0', 'name' => '不需在 ezShip 上確認訂單'),
+                            array('id' => '1', 'name' => '需在 ezShip 上確認訂單'),
                         ),
                         'id' => 'id',
                         'name' => 'name'
                     ),
+                    'desc' => '不需在 ezShip 上確認訂單 ☛ 新訂單直接到寄件區，可直接印單',
                 ),
                 array(
                     'type' => 'select',
@@ -476,8 +489,8 @@ class EzShip extends CarrierModule
                     'name' => 'ezship_enable_pod',
                     'options' => array(
                         'query' => array(
-                            array('id' => '1', 'name' => '啟用'),
                             array('id' => '0', 'name' => '停用'),
+                            array('id' => '1', 'name' => '啟用'),
                         ),
                         'id' => 'id',
                         'name' => 'name'
@@ -496,6 +509,13 @@ class EzShip extends CarrierModule
                 'name' => 'ezship_submit',
                 'title' => $this->l('Save'),
             ),
+            'buttons' => array(
+                array(
+                    'href' => $this->context->link->getAdminLink('AdminPayment', false).'&token='.Tools::getAdminTokenLite('AdminPayment'),
+                    'title' => '返回金物流模組',
+                    'icon' => 'process-icon-back'
+                )
+            )
         );
 
         $helper = new HelperForm();
@@ -658,17 +678,6 @@ class EzShip extends CarrierModule
         return intval(round($order_total));
     }
 
-    public static function logMessage($message, $is_append = false)
-    {
-        $path = _PS_LOG_DIR_ . 'ezship_logistics.log';
-
-        if (!$is_append) {
-            return file_put_contents($path, date('Y/m/d H:i:s') . ' - ' . $message . "\n", LOCK_EX);
-        } else {
-            return file_put_contents($path, date('Y/m/d H:i:s') . ' - ' . $message . "\n", FILE_APPEND | LOCK_EX);
-        }
-    }
-
     public function getStoreData($cart_id, $carrier_id)
     {
         $tcCartShipping = TcCartShipping::getStoreData($cart_id, $carrier_id);
@@ -685,11 +694,37 @@ class EzShip extends CarrierModule
         }
     }
 
-    public function saveStoreData($store_data)
+    public function saveStoreData($store_data, $carrier_id = NULL)
     {
         $cart_id = $this->context->cart->id;
-        $carrier_id = $this->context->cart->id_carrier;
+        if (!$carrier_id) {
+            $carrier_id = $this->context->cart->id_carrier;
+        }
+        if ((int)$carrier_id <= 0) {
+            return;
+        }
         TcCartShipping::saveStoreData($cart_id, $carrier_id, $store_data);
     }
 
+    public static function logMessage($message, $is_append = false)
+    {
+        $path = _PS_LOG_DIR_ . 'ezship_logistics.log';
+
+        if (!$is_append) {
+            return file_put_contents($path, date('Y/m/d H:i:s') . ' - ' . $message . "\n", LOCK_EX);
+        } else {
+            return file_put_contents($path, date('Y/m/d H:i:s') . ' - ' . $message . "\n", FILE_APPEND | LOCK_EX);
+        }
+    }
+
+    public static function warnMessage($message, $is_append = false)
+    {
+        $path = _PS_LOG_DIR_ . 'warn.log';
+
+        if (!$is_append) {
+            return file_put_contents($path, date('Y/m/d H:i:s') . ' - ' . $message . "\n", LOCK_EX);
+        } else {
+            return file_put_contents($path, date('Y/m/d H:i:s') . ' - ' . $message . "\n", FILE_APPEND | LOCK_EX);
+        }
+    }
 }
